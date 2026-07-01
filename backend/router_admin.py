@@ -33,6 +33,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from database import get_db
 import models
@@ -157,8 +158,13 @@ async def create_course(
     course = models.Course(title=course_in.title, description=course_in.description)
     db.add(course)
     await db.flush()
-    await db.refresh(course)
-    return course
+    # Re-query with eager loading so videos/materials are available in async context
+    result = await db.execute(
+        select(models.Course)
+        .where(models.Course.id == course.id)
+        .options(selectinload(models.Course.videos), selectinload(models.Course.materials))
+    )
+    return result.scalars().first()
 
 
 @router.get("/courses", response_model=List[schemas.CourseOut])
@@ -166,7 +172,12 @@ async def list_courses(
     db: AsyncSession = Depends(get_db),
     admin: models.User = Depends(get_current_admin),
 ):
-    result = await db.execute(select(models.Course))
+    result = await db.execute(
+        select(models.Course).options(
+            selectinload(models.Course.videos),
+            selectinload(models.Course.materials)
+        )
+    )
     return result.scalars().all()
 
 
@@ -177,15 +188,24 @@ async def update_course(
     db: AsyncSession = Depends(get_db),
     admin: models.User = Depends(get_current_admin),
 ):
-    result = await db.execute(select(models.Course).where(models.Course.id == course_id))
+    result = await db.execute(
+        select(models.Course)
+        .where(models.Course.id == course_id)
+        .options(selectinload(models.Course.videos), selectinload(models.Course.materials))
+    )
     course = result.scalars().first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     course.title = course_in.title
     course.description = course_in.description
     await db.flush()
-    await db.refresh(course)
-    return course
+    # Re-fetch with relationships after flush
+    result2 = await db.execute(
+        select(models.Course)
+        .where(models.Course.id == course_id)
+        .options(selectinload(models.Course.videos), selectinload(models.Course.materials))
+    )
+    return result2.scalars().first()
 
 
 @router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)

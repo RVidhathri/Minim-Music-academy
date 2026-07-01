@@ -23,6 +23,7 @@ from database import engine
 import router_auth
 import router_admin
 import router_payments
+import router_student
 from scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +63,7 @@ app.add_middleware(
 app.include_router(router_auth.router)
 app.include_router(router_admin.router)
 app.include_router(router_payments.router)
+app.include_router(router_student.router)
 
 
 @app.get("/health", tags=["System"])

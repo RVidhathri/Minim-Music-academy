@@ -82,3 +82,13 @@ class CourseOut(CourseBase):
 
     class Config:
         from_attributes = True
+
+class StudentVideoOut(BaseModel):
+    id: int
+    title: str
+    sequence_order: int
+    is_unlocked: bool
+    unlock_date: Optional[datetime.datetime] = None
+
+    class Config:
+        from_attributes = True

@@ -257,3 +257,29 @@ async def razorpay_webhook(
         "user": user.email,
         "plan": plan.name,
     }
+
+
+@router.get("/subscription")
+async def get_subscription(
+    db: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Get the current active or pending subscription for the logged-in user.
+    """
+    result = await db.execute(
+        select(models.Subscription)
+        .where(models.Subscription.user_id == current_user.id)
+        .order_by(models.Subscription.created_at.desc())
+    )
+    sub = result.scalars().first()
+    if not sub:
+        return {"status": "inactive", "payment_status": "pending", "videos_released": 0}
+    return {
+        "status": sub.status,
+        "payment_status": sub.payment_status,
+        "videos_released": sub.videos_released,
+        "next_release_date": sub.next_release_date,
+        "cycle_start_date": sub.cycle_start_date,
+    }
+

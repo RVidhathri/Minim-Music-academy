@@ -21,8 +21,6 @@ async def override_get_db():
             await session.rollback()
             raise
 
-app.dependency_overrides[get_db] = override_get_db
-
 @pytest.fixture(scope="session")
 def event_loop():
     try:
@@ -34,11 +32,14 @@ def event_loop():
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
+    app.dependency_overrides[get_db] = override_get_db
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+    app.dependency_overrides.pop(get_db, None)
+
 
 @pytest.mark.asyncio
 async def test_signup_and_login():
